@@ -65,6 +65,7 @@ pub type Signature = MultiSignature;
 /// Some way of identifying an account on the chain. We intentionally make it equivalent
 /// to the public key of our transaction signing scheme.
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+// pub type Address = AccountId;
 
 /// The type for looking up accounts. We don't expect more than 4 billion of them, but you
 /// never know...
@@ -291,13 +292,31 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorTruncated<F> {
 	where
 		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
 	{
-		if let Some(author_index) = F::find_author(digests) {
-			let authority_id = Aura::authorities()[author_index as usize].clone();
-			return Some(H160::from_slice(&authority_id.to_raw_vec()[4..24]));
-		}
-		None
+		use sp_core::crypto::ByteArray;
+		F::find_author(digests).and_then(|i| {
+			Aura::authorities().get(i as usize).and_then(|id| {
+				let raw = id.to_raw_vec();
+
+				if raw.len() >= 24 {
+					Some(H160::from_slice(&raw[4..24]))
+				} else {
+					None
+				}
+			})
+		})
 	}
 }
+
+pub struct FromH160;
+impl<T> pallet_evm::AddressMapping<T> for FromH160
+where
+	T: From<H160>,
+{
+	fn into_account_id(address: H160) -> T {
+		address.into()
+	}
+}
+
 
 parameter_types! {
 	pub const ChainId: u64 = 42;
@@ -311,7 +330,7 @@ impl pallet_evm::Config for Runtime {
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
 	type CallOrigin = EnsureAddressTruncated;
 	type WithdrawOrigin = EnsureAddressTruncated;
-	type AddressMapping = HashedAddressMapping<BlakeTwo256>;
+	type AddressMapping = FromH160;
 	type Currency = Balances;
 	type Event = Event;
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
@@ -578,7 +597,7 @@ impl_runtime_apis! {
 
 	impl fp_rpc::EthereumRuntimeRPCApi<Block> for Runtime {
 		fn chain_id() -> u64 {
-			<Runtime as pallet_evm::Config>::ChainId::get()
+			<<Runtime as pallet_evm::Config>::ChainId as frame_support::traits::Get<u64>>::get()
 		}
 
 		fn account_basic(address: H160) -> EVMAccount {
