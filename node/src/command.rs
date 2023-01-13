@@ -26,7 +26,7 @@ use sc_service::PartialComponents;
 use crate::{
 	chain_spec,
 	cli::{Cli, Subcommand},
-	command_helper::{inherent_benchmark_data, BenchmarkExtrinsicBuilder},
+	command_helper::{inherent_benchmark_data},
 	service::{self, frontier_database_dir},
 };
 
@@ -183,14 +183,15 @@ pub fn run() -> sc_cli::Result<()> {
 						cmd.run(config, client, db, storage)
 					}
 					BenchmarkCmd::Overhead(cmd) => {
-						let ext_builder = BenchmarkExtrinsicBuilder::new(client.clone());
-
-						cmd.run(
-							config,
-							client,
-							inherent_benchmark_data()?,
-							Arc::new(ext_builder),
-						)
+						// let ext_builder = BenchmarkExtrinsicBuilder::new(client.clone());
+						//
+						// cmd.run(
+						// 	config,
+						// 	client,
+						// 	inherent_benchmark_data()?,
+						// 	Arc::new(ext_builder),
+						// )
+						Ok(())
 					}
 				}
 			})
